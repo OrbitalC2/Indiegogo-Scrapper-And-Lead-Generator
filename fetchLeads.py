@@ -1,9 +1,12 @@
 import requests
+import signal
+import sys
 from bs4 import BeautifulSoup
 import json
 import re
 import time
 from datetime import datetime
+
 # import gspread
 # from google.oauth2.service_account import Credentials
 
@@ -217,14 +220,15 @@ class IndiegogoScraper:
         
         return matched
 
-    def scrape_projects(self, max_pages=None):
+    def scrape_projects(self, startFrom, max_pages = None):
         print(f"Starting scrape with target keywords: {self.target_keywords}")
         
         # Initialize the client session
         self.client.initSession()
         self.client.getCompleteCookieData()
         
-        page_num = 1
+        max_pages += startFrom
+        page_num = startFrom
         
         while True:
             if max_pages and page_num > max_pages:
@@ -334,10 +338,6 @@ class IndiegogoScraper:
         
         return self.all_results
 
-    def save_to_json(self, filename='matched_projects.json'):
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(self.all_results, f, indent=2, ensure_ascii=False)
-        print(f"Results saved to {filename}")
 
     # def save_to_google_sheets(self, spreadsheet_name='Indiegogo Matched Projects'):
     #     if not self.google_sheets_creds:
@@ -384,24 +384,35 @@ class IndiegogoScraper:
     #     except Exception as e:
     #         print(f"Error uploading to Google Sheets: {e}")
 
-def main():
-
-    TARGET_KEYWORDS = [
+TARGET_KEYWORDS = [
         'SaaS', 'MVP', 'early-stage startup', 'product launch', 'prototype', 'software startup',
         'Artificial Intelligence', 'AI-powered', 'Machine Learning', 'Generative AI', 'NLP',
         'Full-stack development', 'Mobile app', 'MERN stack', 'React Native', 'Next.js', 'Flutter',
         'Automation tools', 'Business automation', 'Workflow automation', 'Zapier alternative',
         'Pre-seed', 'Seed funding', 'B2B SaaS', 'YC-backed', 'Tech startup'
     ]
-    
+scraper = IndiegogoScraper(TARGET_KEYWORDS)
+startFrom = 162   #enter pg number to start from
 
 
-    scraper = IndiegogoScraper(TARGET_KEYWORDS)
-    results = scraper.scrape_projects(max_pages=160) 
+def save_to_json(self, filename):
+    with open(filename, 'w', encoding='utf-8') as f:
+        json.dump(self.all_results, f, indent=2, ensure_ascii=False)
+    print(f"Results saved to {filename}")
 
-    scraper.save_to_json('matched_indiegogo_projects2.json')
+def signal_handler(sig, frame):
+    print('\nCtrl+C Pressed! Saving to file..')
+    save_to_json(scraper, 'leads.json')
+    sys.exit(0)
 
 
+def main():
+
+    signal.signal(signal.SIGINT, signal_handler)
+    results = scraper.scrape_projects(startFrom, max_pages=100) 
+    signal.pause()
+
+    save_to_json('leads.json')
 
 if __name__ == "__main__":
     main()
